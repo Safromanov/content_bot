@@ -4,8 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from config import cfg
-import text_utils
+from content_bot.config import cfg
+from content_bot.ai import text_utils
 
 
 class MultiImageVisionTests(unittest.TestCase):

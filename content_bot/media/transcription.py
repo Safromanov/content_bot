@@ -7,8 +7,8 @@ import logging
 import hashlib
 from http.cookiejar import MozillaCookieJar
 import requests as req
-from config import cfg
-from groq_client import get_groq
+from content_bot.config import cfg
+from content_bot.ai.groq_client import get_groq
 
 logger = logging.getLogger(__name__)
 
@@ -598,6 +598,5 @@ def process_vk_wall_post(url: str, tmp_dir: str) -> dict:
     result['post_type'] = 'photo' if photo_count > 0 else ('text' if text else 'unknown')
     logger.info('VK wall-пост: скачано ' + str(photo_count) + ' фото, автор=' + result['author'][:30])
     return result
-
 
 

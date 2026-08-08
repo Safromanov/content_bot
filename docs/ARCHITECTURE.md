@@ -5,7 +5,7 @@ Telegram-бот для сбора контента из соцсетей → о�
 ## Data Flow
 
 ```
-User message → bot.py → handlers.py (detect + queue) → processor.py (orchestrator)
+User message → content_bot/bot.py → handlers.py (detect + queue) → processor.py
                                                             ↓
                                                      media_handlers.py (enrich by platform)
                                                             ↓
@@ -21,34 +21,33 @@ User message → bot.py → handlers.py (detect + queue) → processor.py (orche
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `bot.py` | 57 | Entry point, telegram polling, command registration |
-| `config.py` | 82 | Config from `.env`, categories list, validation |
-| `detector.py` | 119 | `detect(message)` → ContentType enum + URL/file_id extraction |
-| `handlers.py` | 249 | Message handler, album buffer, asyncio.Queue, retry worker, DLQ |
-| `processor.py` | 209 | Orchestrator: handler.enrich → classify + title → write_record |
-| `media_handlers.py` | 350 | Strategy pattern: YouTubeHandler, SocialHandler, TelegramVideoHandler, PhotoHandler, TextHandler |
-| `transcription.py` | 483 | Whisper via Groq, YouTube subtitles, Instagram 3-source metadata, yt-dlp audio |
-| `text_utils.py` | 133 | LLM calls: Gemini multi-image vision, title, summary, translation |
-| `classifier.py` | 117 | LLM classification into 16 categories with confidence |
-| `nocodb_writer.py` | 269 | Build text field, upload files, POST record to NocoDB |
-| `metadata.py` | 133 | YouTube/page oEmbed, article text extraction via BeautifulSoup |
-| `groq_client.py` | 16 | Singleton Groq client |
-| `stats.py` | 104 | Stats tracking (by category/platform), /stats command |
-| `retry_utils.py` | 97 | Retry decorator, DLQ save/count |
-| `miro_writer.py` | 292 | (Optional) Miro board integration, currently not wired into main pipeline |
+| `content_bot/bot.py` | Telegram polling and command registration |
+| `content_bot/config.py` | Environment configuration and categories |
+| `content_bot/detector.py` | Content type and URL/file extraction |
+| `content_bot/handlers.py` | Commands, album buffer, queue worker, and DLQ |
+| `content_bot/processor.py` | Enrichment, classification, title, and persistence orchestration |
+| `content_bot/media/handlers.py` | Media strategy implementations by platform |
+| `content_bot/media/transcription.py` | Whisper, subtitles, Instagram/VK extraction, and yt-dlp |
+| `content_bot/media/metadata.py` | YouTube and webpage metadata extraction |
+| `content_bot/ai/text_utils.py` | Gemini multi-image vision and Groq text tasks |
+| `content_bot/ai/classifier.py` | Classification into configured categories |
+| `content_bot/ai/groq_client.py` | Shared Groq client |
+| `content_bot/storage/nocodb.py` | Attachments, records, and category updates |
+| `content_bot/storage/stats.py` | Processing statistics |
+| `content_bot/storage/retry.py` | Retry helpers and dead-letter queue |
 
 ## LLM Calls (Groq API)
 
 | Call | Model | Where | Tokens ~est |
 |------|-------|-------|-------------|
-| Whisper transcription | whisper-large-v3 | `transcription.py:transcribe_file` | audio-based |
-| Format transcript | llama-3.1-8b | `transcription.py:format_transcript` | 1500/chunk |
-| Classification | llama-3.3-70b | `classifier.py:classify` | 500-800 |
-| Theme title | llama-3.3-70b | `text_utils.py:generate_theme_title` | 100-200 |
-| Summary | llama-3.1-8b | `text_utils.py:generate_summary` | 300-500 |
-| Vision (photo/carousel) | Gemini 3.5 Flash | `text_utils.py:analyze_images` | image-based |
-| Video description | llama-3.1-8b | `text_utils.py:generate_video_description` | 200-300 |
-| Translation | llama-3.1-8b | `text_utils.py:translate_to_russian` | 500-1000 |
+| Whisper transcription | whisper-large-v3 | `media/transcription.py:transcribe_file` | audio-based |
+| Format transcript | llama-3.1-8b | `media/transcription.py:format_transcript` | 1500/chunk |
+| Classification | llama-3.3-70b | `ai/classifier.py:classify` | 500-800 |
+| Theme title | llama-3.3-70b | `ai/text_utils.py:generate_theme_title` | 100-200 |
+| Summary | llama-3.1-8b | `ai/text_utils.py:generate_summary` | 300-500 |
+| Vision (photo/carousel) | Gemini 3.5 Flash | `ai/text_utils.py:analyze_images` | image-based |
+| Video description | llama-3.1-8b | `ai/text_utils.py:generate_video_description` | 200-300 |
+| Translation | llama-3.1-8b | `ai/text_utils.py:translate_to_russian` | 500-1000 |
 
 ## ContentType Routing (media_handlers.py)
 

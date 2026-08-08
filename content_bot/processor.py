@@ -7,13 +7,13 @@ import logging
 import time
 import uuid
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from detector import ContentType, PLATFORM_LABELS
-from media_handlers import get_handler
-from classifier import classify, ClassifyResult
-from text_utils import generate_theme_title
-from nocodb_writer import write_record
-from stats import record as record_stats
-from config import cfg
+from content_bot.detector import ContentType, PLATFORM_LABELS
+from content_bot.media.handlers import get_handler
+from content_bot.ai.classifier import classify, ClassifyResult
+from content_bot.ai.text_utils import generate_theme_title
+from content_bot.storage.nocodb import write_record
+from content_bot.storage.stats import record as record_stats
+from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
 

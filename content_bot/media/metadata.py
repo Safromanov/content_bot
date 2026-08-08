@@ -2,7 +2,7 @@
 
 import logging
 import requests
-from config import cfg
+from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
 

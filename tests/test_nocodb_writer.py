@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-import nocodb_writer
+from content_bot.storage import nocodb as nocodb_writer
 
 
 class CategoryUpdateTests(unittest.TestCase):

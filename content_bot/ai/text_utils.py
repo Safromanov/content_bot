@@ -3,8 +3,8 @@
 import base64
 import logging
 import mimetypes
-from config import cfg
-from groq_client import get_groq
+from content_bot.config import cfg
+from content_bot.ai.groq_client import get_groq
 
 logger = logging.getLogger(__name__)
 

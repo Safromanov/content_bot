@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from config import cfg
+from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def record(category: str, platform: str, elapsed_sec: float, success: bool) -> N
 
 def format_stats_message() -> str:
     """Форматирует статистику для отправки пользователю через /stats."""
-    from retry_utils import get_dlq_count
+    from content_bot.storage.retry import get_dlq_count
 
     data  = _load()
     lines = [

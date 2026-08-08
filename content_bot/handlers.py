@@ -6,12 +6,12 @@ import uuid
 from telegram import Update
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from detector import detect, ContentType
-from processor import process_task
-from retry_utils import save_to_dlq, get_dlq_count
-from stats import format_stats_message
-from config import cfg
-from nocodb_writer import update_record_category
+from content_bot.detector import detect, ContentType
+from content_bot.processor import process_task
+from content_bot.storage.retry import save_to_dlq, get_dlq_count
+from content_bot.storage.stats import format_stats_message
+from content_bot.config import cfg
+from content_bot.storage.nocodb import update_record_category
 
 logger = logging.getLogger(__name__)
 

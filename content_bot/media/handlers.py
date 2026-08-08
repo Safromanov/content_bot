@@ -7,19 +7,19 @@ import logging
 import os
 import requests
 from abc import ABC, abstractmethod
-from detector import ContentType
-from transcription import (
+from content_bot.detector import ContentType
+from content_bot.media.transcription import (
     transcribe_file, format_transcript,
     get_youtube_transcript,
     process_instagram_url, process_social_url_ydl,
     process_vk_wall_post,
     download_audio_ydl,
 )
-from metadata import extract_youtube_metadata, extract_page_metadata
-from text_utils import (
+from content_bot.media.metadata import extract_youtube_metadata, extract_page_metadata
+from content_bot.ai.text_utils import (
     analyze_images, generate_summary, generate_video_description,
 )
-from config import cfg
+from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class BaseMediaHandler(ABC):
 
 async def _download_telegram_file(file_id: str, bot, suffix: str, task_id: str) -> str:
     """Общая утилита скачивания файла из Telegram."""
-    from config import cfg
+    from content_bot.config import cfg
     tmp_path = os.path.join(cfg.TEMP_DIR, file_id + '.' + suffix)
     try:
         tg_file  = await bot.get_file(file_id)
@@ -137,8 +137,8 @@ class SocialHandler(BaseMediaHandler):
 
     async def enrich(self, content: dict, bot, task_id: str) -> dict:
         import asyncio
-        from transcription import process_instagram_url, process_social_url_ydl
-        from text_utils import generate_summary, generate_video_description, analyze_images
+        from content_bot.media.transcription import process_instagram_url, process_social_url_ydl
+        from content_bot.ai.text_utils import generate_summary, generate_video_description, analyze_images
 
         self._init_content(content)
         url     = content.get("url", "")
@@ -153,7 +153,7 @@ class SocialHandler(BaseMediaHandler):
 
         loop = asyncio.get_event_loop()
 
-        from detector import ContentType
+        from content_bot.detector import ContentType
         is_instagram = (ctype == ContentType.INSTAGRAM)
 
         if is_instagram:

@@ -14,9 +14,9 @@ import mimetypes
 import requests
 import logging
 from datetime import datetime
-from config import cfg
-from detector import ContentType, PLATFORM_LABELS
-from text_utils import translate_to_russian
+from content_bot.config import cfg
+from content_bot.detector import ContentType, PLATFORM_LABELS
+from content_bot.ai.text_utils import translate_to_russian
 
 logger = logging.getLogger(__name__)
 
@@ -330,7 +330,6 @@ def write_record(task: dict, category: str, meta: dict,
     except Exception as e:
         logger.error('write_record: ' + str(e))
         return ''
-
 
 
 

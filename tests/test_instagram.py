@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import transcription
+from content_bot.media import transcription
 
 
 class InstagramCarouselTests(unittest.TestCase):

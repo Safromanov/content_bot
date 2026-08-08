@@ -3,7 +3,7 @@
 # Избегает overhead создания нового HTTP-соединения при каждом вызове.
 
 from groq import Groq
-from config import cfg
+from content_bot.config import cfg
 
 _client: Groq | None = None
 

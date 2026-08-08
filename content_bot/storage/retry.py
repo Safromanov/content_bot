@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime
 from functools import wraps
-from config import cfg
+from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
 
