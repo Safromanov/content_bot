@@ -28,7 +28,7 @@ User message → bot.py → handlers.py (detect + queue) → processor.py (orche
 | `processor.py` | 209 | Orchestrator: handler.enrich → classify + title → write_record |
 | `media_handlers.py` | 350 | Strategy pattern: YouTubeHandler, SocialHandler, TelegramVideoHandler, PhotoHandler, TextHandler |
 | `transcription.py` | 483 | Whisper via Groq, YouTube subtitles, Instagram 3-source metadata, yt-dlp audio |
-| `text_utils.py` | 133 | LLM calls: analyze_photo (vision), generate_theme_title, generate_summary, translate_to_russian |
+| `text_utils.py` | 133 | LLM calls: Gemini multi-image vision, title, summary, translation |
 | `classifier.py` | 117 | LLM classification into 16 categories with confidence |
 | `nocodb_writer.py` | 269 | Build text field, upload files, POST record to NocoDB |
 | `metadata.py` | 133 | YouTube/page oEmbed, article text extraction via BeautifulSoup |
@@ -46,7 +46,7 @@ User message → bot.py → handlers.py (detect + queue) → processor.py (orche
 | Classification | llama-3.3-70b | `classifier.py:classify` | 500-800 |
 | Theme title | llama-3.3-70b | `text_utils.py:generate_theme_title` | 100-200 |
 | Summary | llama-3.1-8b | `text_utils.py:generate_summary` | 300-500 |
-| Vision (photo) | llama-4-scout | `text_utils.py:analyze_photo` | 200-400 |
+| Vision (photo/carousel) | Gemini 3.5 Flash | `text_utils.py:analyze_images` | image-based |
 | Video description | llama-3.1-8b | `text_utils.py:generate_video_description` | 200-300 |
 | Translation | llama-3.1-8b | `text_utils.py:translate_to_russian` | 500-1000 |
 

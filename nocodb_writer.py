@@ -300,6 +300,24 @@ def post_record(record: dict) -> str:
     return row_id
 
 
+def update_record_category(row_id: str, category: str) -> bool:
+    """Обновляет категорию существующей строки NocoDB."""
+    if category not in cfg.CATEGORIES or not row_id:
+        return False
+
+    resp = requests.patch(
+        NOCODB_API + '/tables/' + cfg.NOCODB_TABLE_ID + '/records',
+        json={'Id': row_id, 'Category': category},
+        headers=get_headers(),
+        timeout=30,
+    )
+    if not resp.ok:
+        logger.error('NocoDB category update ' + str(resp.status_code) + ': ' + resp.text[:300])
+        resp.raise_for_status()
+    logger.info('Id=' + row_id + ' Category updated=' + category)
+    return True
+
+
 def write_record(task: dict, category: str, meta: dict,
                  theme_title: str, author: str,
                  local_file_paths: list) -> str:
@@ -312,7 +330,6 @@ def write_record(task: dict, category: str, meta: dict,
     except Exception as e:
         logger.error('write_record: ' + str(e))
         return ''
-
 
 
 

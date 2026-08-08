@@ -17,7 +17,7 @@ from transcription import (
 )
 from metadata import extract_youtube_metadata, extract_page_metadata
 from text_utils import (
-    analyze_photo, generate_summary, generate_video_description,
+    analyze_images, generate_summary, generate_video_description,
 )
 from config import cfg
 
@@ -138,7 +138,7 @@ class SocialHandler(BaseMediaHandler):
     async def enrich(self, content: dict, bot, task_id: str) -> dict:
         import asyncio
         from transcription import process_instagram_url, process_social_url_ydl
-        from text_utils import generate_summary, generate_video_description, analyze_photo
+        from text_utils import generate_summary, generate_video_description, analyze_images
 
         self._init_content(content)
         url     = content.get("url", "")
@@ -189,24 +189,18 @@ class SocialHandler(BaseMediaHandler):
 
         # ── Vision: нейросеть смотрит на изображения (карусель) ─────────────
         # Запускаем для фото/каруселей ВСЕГДА — не только когда нет caption.
-        # Vision + description + hashtags = наилучшая классификация.
-        # Если карусель смешанная (фото+видео), мы комбинируем Vision с первых 3 фото
-        if content["local_files"]:
-            vision_parts = []
-            vision_count = 0
-            for file_path in content["local_files"]:
-                ext = file_path.lower().split('.')[-1]
-                if ext in ("jpg", "jpeg", "png", "webp") and vision_count < 5:
-                    self._log(task_id, "Vision: анализируем " + os.path.basename(file_path))
-                    v_res = await loop.run_in_executor(None, analyze_photo, file_path)
-                    if v_res:
-                        # Используем пулю для каждого фото, чтобы избежать Markdown-заголовков
-                        vision_parts.append("• " + v_res.strip())
-                        vision_count += 1
-            if vision_parts:
-                full_vision = "\n\n".join(vision_parts)
-                content["vision_description"] = full_vision
-                self._log(task_id, f"Vision: {vision_count} фото проанализировано")
+        # Gemini получает все изображения одной публикации одним запросом и
+        # анализирует их как связанную последовательность.
+        image_paths = [
+            path for path in content["local_files"]
+            if path.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+        ][:cfg.CAROUSEL_MAX_IMAGES]
+        if image_paths:
+            self._log(task_id, "Gemini Vision: анализируем " + str(len(image_paths)) + " фото")
+            vision = await loop.run_in_executor(None, analyze_images, image_paths)
+            if vision:
+                content["vision_description"] = vision
+                self._log(task_id, "Vision готов: " + str(len(vision)) + " символов")
 
         # ── Доп. обработка по типу ────────────────────────────────
         if content["transcript"]:
@@ -281,7 +275,7 @@ class TelegramVideoHandler(BaseMediaHandler):
 
 
 class PhotoHandler(BaseMediaHandler):
-    """Telegram фото: скачивает все фото альбома, vision для первого если нет подписи."""
+    """Telegram фото: скачивает альбом и анализирует все фото одним запросом."""
 
     async def enrich(self, content: dict, bot, task_id: str) -> dict:
         import asyncio
@@ -292,10 +286,9 @@ class PhotoHandler(BaseMediaHandler):
             if path:
                 content['local_files'].append(path)
 
-        raw_text = (content.get('raw_text') or '').strip()
-        if not raw_text and content['local_files']:
+        if content['local_files']:
             loop   = asyncio.get_event_loop()
-            vision = await loop.run_in_executor(None, analyze_photo, content['local_files'][0])
+            vision = await loop.run_in_executor(None, analyze_images, content['local_files'])
             content['vision_description'] = vision.strip()
             if vision:
                 self._log(task_id, 'Vision: ' + vision[:80])
@@ -353,21 +346,17 @@ class VkWallHandler(BaseMediaHandler):
             'post_type': post_type,
         }
 
-        # ── Vision: анализируем все скачанные фото ───────────────────────────
-        if content['local_files']:
-            vision_parts = []
-            vision_count = 0
-            for file_path in content['local_files']:
-                ext = file_path.lower().split('.')[-1]
-                if ext in ('jpg', 'jpeg', 'png', 'webp') and vision_count < 5:
-                    self._log(task_id, 'Vision: анализируем ' + os.path.basename(file_path))
-                    v_res = await loop.run_in_executor(None, analyze_photo, file_path)
-                    if v_res:
-                        vision_parts.append('• ' + v_res.strip())
-                        vision_count += 1
-            if vision_parts:
-                content['vision_description'] = '\n\n'.join(vision_parts)
-                self._log(task_id, 'Vision: ' + str(vision_count) + ' фото проанализировано')
+        # ── Vision: все фото поста анализируются совместно ──────────────────
+        image_paths = [
+            path for path in content['local_files']
+            if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+        ][:cfg.CAROUSEL_MAX_IMAGES]
+        if image_paths:
+            self._log(task_id, 'Gemini Vision: анализируем ' + str(len(image_paths)) + ' фото')
+            vision = await loop.run_in_executor(None, analyze_images, image_paths)
+            if vision:
+                content['vision_description'] = vision
+                self._log(task_id, 'Vision готов: ' + str(len(vision)) + ' символов')
 
         if not meta['description'] and caption:
             meta['description'] = caption

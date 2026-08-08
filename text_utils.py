@@ -2,6 +2,7 @@
 
 import base64
 import logging
+import mimetypes
 from config import cfg
 from groq_client import get_groq
 
@@ -28,6 +29,56 @@ def analyze_photo(file_path: str) -> str:
     except Exception as e:
         logger.error('analyze_photo: ' + str(e))
         return ''
+
+
+def analyze_images(file_paths: list[str]) -> str:
+    """Описывает всю последовательность изображений одним запросом Gemini."""
+    paths = [path for path in file_paths if path][:cfg.CAROUSEL_MAX_IMAGES]
+    if not paths:
+        return ''
+
+    if cfg.GEMINI_API_KEY:
+        try:
+            from google import genai
+            from google.genai import types
+
+            contents = [(
+                'Проанализируй изображения как последовательность одной публикации. '
+                'Определи общую тему, связь и порядок изображений, важный текст на них, '
+                'товары, места, действия и другие факты, полезные для классификации. '
+                'Верни единое содержательное описание на русском языке без Markdown-заголовков. '
+                'Не описывай изображения изолированно и не придумывай невидимые детали.'
+            )]
+            for path in paths:
+                mime_type = mimetypes.guess_type(path)[0] or 'image/jpeg'
+                with open(path, 'rb') as image_file:
+                    contents.append(types.Part.from_bytes(
+                        data=image_file.read(),
+                        mime_type=mime_type,
+                    ))
+
+            client = genai.Client(api_key=cfg.GEMINI_API_KEY)
+            response = client.models.generate_content(
+                model=cfg.GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=500,
+                ),
+            )
+            result = (response.text or '').strip()
+            if result:
+                logger.info(
+                    'Gemini Vision: ' + str(len(paths)) +
+                    ' изображений, ' + str(len(result)) + ' символов'
+                )
+                return result
+            logger.warning('Gemini Vision вернул пустой ответ')
+        except Exception as e:
+            logger.warning('Gemini Vision недоступен, пропускаем анализ изображений: ' + str(e)[:200])
+    else:
+        logger.warning('GEMINI_API_KEY не задан, пропускаем анализ изображений')
+    return ''
 
 
 def generate_theme_title(text: str) -> str:

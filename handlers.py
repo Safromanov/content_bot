@@ -4,12 +4,14 @@ import asyncio
 import logging
 import uuid
 from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from detector import detect, ContentType
 from processor import process_task
 from retry_utils import save_to_dlq, get_dlq_count
 from stats import format_stats_message
 from config import cfg
+from nocodb_writer import update_record_category
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +209,39 @@ async def handle_dlq(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('\n'.join(lines))
     except Exception as ex:
         await update.message.reply_text('Ошибка чтения DLQ: ' + str(ex))
+
+
+async def handle_recategory(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает категории и применяет выбранную к строке NocoDB."""
+    if not is_allowed(update):
+        return
+
+    query = update.callback_query
+    data = query.data or ''
+
+    if data.startswith('re:'):
+        await query.answer()
+        row_id = data.split(':', 1)[1]
+        buttons = [
+            InlineKeyboardButton(category, callback_data='rc:' + row_id + ':' + str(index))
+            for index, category in enumerate(cfg.CATEGORIES)
+        ]
+        keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    try:
+        _, row_id, category_index = data.split(':', 2)
+        category = cfg.CATEGORIES[int(category_index)]
+        loop = asyncio.get_running_loop()
+        updated = await loop.run_in_executor(None, update_record_category, row_id, category)
+        if not updated:
+            raise ValueError('Некорректная категория или ID записи')
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.answer('Категория изменена: ' + category, show_alert=True)
+    except Exception as ex:
+        logger.error('Ошибка смены категории: ' + str(ex), exc_info=True)
+        await query.answer('Не удалось изменить категорию', show_alert=True)
 
 
 async def queue_worker(app):

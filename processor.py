@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 import uuid
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from detector import ContentType, PLATFORM_LABELS
 from media_handlers import get_handler
 from classifier import classify, ClassifyResult
@@ -197,13 +198,17 @@ async def process_task(task: dict, app) -> str:
                 top2 = [c for c in cfg.CATEGORIES if c != category][:2]
                 msg += ('\n\n🤔 Уверен на ' + str(round(confidence * 100)) + '%.'
                         + ' Возможно это: ' + ' или '.join(top2[:2]) + '?'
-                        + '\nОтветь /recat_' + row_id + '_<категория> для смены.')
+                        + '\nКатегорию можно изменить кнопкой ниже.')
 
             msg += '\nTheme: ' + theme_title
+            reply_markup = InlineKeyboardMarkup([[
+                InlineKeyboardButton('Изменить категорию', callback_data='re:' + row_id)
+            ]])
         else:
             msg = '⚠️ Обработано, но записать не удалось. Проверь логи.'
+            reply_markup = None
 
-        await app.bot.send_message(chat_id=chat_id, text=msg)
+        await app.bot.send_message(chat_id=chat_id, text=msg, reply_markup=reply_markup)
 
         elapsed = round(time.monotonic() - t_start, 2)
         logger.info(prefix + 'Готово за ' + str(elapsed) + 'с')

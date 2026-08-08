@@ -3,11 +3,11 @@
 import logging
 import asyncio
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters
 from config import cfg, validate_config
 from handlers import (
     handle_message, handle_start, handle_status,
-    handle_stats, handle_dlq, queue_worker,
+    handle_stats, handle_dlq, handle_recategory, queue_worker,
 )
 
 logging.basicConfig(
@@ -41,6 +41,7 @@ def main():
     app.add_handler(CommandHandler('status', handle_status))
     app.add_handler(CommandHandler('stats',  handle_stats))
     app.add_handler(CommandHandler('dlq',    handle_dlq))
+    app.add_handler(CallbackQueryHandler(handle_recategory, pattern=r'^r(?:e|c):'))
 
     app.add_handler(MessageHandler(
         filters.TEXT | filters.PHOTO | filters.VIDEO |

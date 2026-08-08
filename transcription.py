@@ -5,6 +5,7 @@ import re
 import html
 import logging
 import hashlib
+from http.cookiejar import MozillaCookieJar
 import requests as req
 from config import cfg
 from groq_client import get_groq
@@ -164,7 +165,7 @@ def _clean_instagram_url(url: str) -> str:
     return url.split("?")[0].rstrip("/")
 
 
-def _download_image(img_url: str, fpath: str) -> bool:
+def _download_image(img_url: str, fpath: str, instagram_context=None) -> bool:
     """Скачивает изображение с CDN Instagram."""
     try:
         headers = {
@@ -173,7 +174,10 @@ def _download_image(img_url: str, fpath: str) -> bool:
             "Referer": "https://www.instagram.com/",
             "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
         }
-        resp = req.get(img_url, headers=headers, timeout=30)
+        if instagram_context is not None:
+            resp = instagram_context.get_raw(img_url)
+        else:
+            resp = req.get(img_url, headers=headers, timeout=30)
         resp.raise_for_status()
         with open(fpath, "wb") as f:
             f.write(resp.content)
@@ -201,6 +205,11 @@ def _ig_source_instaloader(shortcode: str) -> dict:
             download_pictures=False, download_videos=False,
             download_video_thumbnails=False, save_metadata=False, quiet=True,
         )
+        if cfg.INSTAGRAM_COOKIES_FILE and os.path.exists(cfg.INSTAGRAM_COOKIES_FILE):
+            cookie_jar = MozillaCookieJar(cfg.INSTAGRAM_COOKIES_FILE)
+            cookie_jar.load(ignore_discard=True, ignore_expires=True)
+            L.context._session.cookies.update(cookie_jar)
+
         post = instaloader.Post.from_shortcode(L.context, shortcode)
         out["author"]      = (post.owner_username or "").strip()
         out["description"] = (post.caption or "").strip()
@@ -215,7 +224,8 @@ def _ig_source_instaloader(shortcode: str) -> dict:
             out["post_type"] = "carousel"
             for node in nodes:
                 url_node = (node.video_url if node.is_video else node.display_url) or ""
-                out["image_urls"].append(url_node)
+                if not node.is_video:
+                    out["image_urls"].append(url_node)
                 out["media_items"].append({"url": url_node, "is_video": node.is_video})
         elif post.is_video:
             out["post_type"] = "video"
@@ -226,6 +236,7 @@ def _ig_source_instaloader(shortcode: str) -> dict:
             out["image_urls"] = [post.url or ""]
             out["media_items"].append({"url": post.url or "", "is_video": False})
 
+        out["instagram_context"] = L.context
         out["ok"] = True
         logger.info("instaloader OK: type=" + out["post_type"] +
                     " items=" + str(len(out["media_items"])) +
@@ -321,6 +332,7 @@ def _merge_ig_metadata(src_a: dict, src_b: dict, src_c: dict) -> dict:
         "image_urls":    src_a.get("image_urls") or [],
         "media_items":   src_a.get("media_items") or [],
         "video_url":     src_a.get("video_url") or "",
+        "instagram_context": src_a.get("instagram_context"),
         "thumbnail_url": src_b.get("thumbnail_url") or src_c.get("image_url") or "",
     }
 
@@ -378,33 +390,25 @@ def process_instagram_url(url: str, tmp_dir: str) -> dict:
 
     # ── Фаза 2: медиафайлы ─────────────────────────────────
     if meta["post_type"] in ("photo", "carousel") and meta["media_items"]:
-        video_transcribed = False
-        for i, item in enumerate(meta["media_items"][:cfg.CAROUSEL_MAX_IMAGES]):
+        image_count = 0
+        for i, item in enumerate(meta["media_items"]):
             url_i = item.get("url")
             is_video = item.get("is_video", False)
             if not url_i:
                 continue
-            
-            ext = "mp4" if is_video else "jpg"
-            fpath = os.path.join(tmp_dir, "ig_" + url_hash + "_" + str(i).zfill(3) + "." + ext)
-            if _download_image(url_i, fpath):
+
+            # Видео внутри карусели не загружаем, но продолжаем обход,
+            # чтобы сохранить изображения, которые расположены после него.
+            if is_video:
+                logger.info("Медиа: carousel video [" + str(i) + "] пропущено")
+                continue
+            if image_count >= cfg.CAROUSEL_MAX_IMAGES:
+                break
+
+            fpath = os.path.join(tmp_dir, "ig_" + url_hash + "_" + str(i).zfill(3) + ".jpg")
+            if _download_image(url_i, fpath, meta.get("instagram_context")):
                 result["media_files"].append(fpath)
-                
-                # Транскрибируем первое видео из карусели
-                if is_video and not video_transcribed:
-                    video_transcribed = True
-                    logger.info("Медиа: carousel video [" + str(i) + "] → Whisper")
-                    out_base = os.path.join(tmp_dir, "ig_audio_car_" + url_hash)
-                    audio_path = download_audio_ydl(url_i, out_base)
-                    if audio_path:
-                        try:
-                            raw = transcribe_file(audio_path)
-                            if raw:
-                                result["transcript"] = format_transcript(raw)
-                                logger.info("Транскрипт (карусель): " + str(len(result["transcript"])) + " символов")
-                        finally:
-                            if os.path.exists(audio_path):
-                                os.remove(audio_path)
+                image_count += 1
                                 
         logger.info("Медиа: " + str(len(result["media_files"])) +
                     "/" + str(len(meta["media_items"])) + " элементов скачано")
@@ -426,7 +430,7 @@ def process_instagram_url(url: str, tmp_dir: str) -> dict:
     # Нет изображений из instaloader → thumbnail из oEmbed/scrape
     if not result["media_files"] and meta["thumbnail_url"]:
         fpath = os.path.join(tmp_dir, "ig_" + url_hash + "_thumb.jpg")
-        if _download_image(meta["thumbnail_url"], fpath):
+        if _download_image(meta["thumbnail_url"], fpath, meta.get("instagram_context")):
             result["media_files"].append(fpath)
             if result["post_type"] == "unknown":
                 result["post_type"] = "photo"
@@ -594,7 +598,6 @@ def process_vk_wall_post(url: str, tmp_dir: str) -> dict:
     result['post_type'] = 'photo' if photo_count > 0 else ('text' if text else 'unknown')
     logger.info('VK wall-пост: скачано ' + str(photo_count) + ' фото, автор=' + result['author'][:30])
     return result
-
 
 
 

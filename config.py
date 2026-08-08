@@ -17,6 +17,10 @@ class Config:
     GROQ_MODEL_SMART = 'llama-3.3-70b-versatile'   # классификация, заголовок
     GROQ_MODEL_FAST  = 'llama-3.1-8b-instant'      # описание, форматирование
 
+    # ── Google Gemini (Vision) ─────────────────────────────
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+    GEMINI_MODEL   = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash')
+
     # ── NocoDB ────────────────────────────────────────────
     NOCODB_TOKEN    = os.getenv('NOCODB_TOKEN', '')
     NOCODB_BASE_URL = 'https://app.nocodb.com'
@@ -79,7 +83,5 @@ def validate_config() -> None:
             print('   ' + m)
         sys.exit(1)
 # Patch: Instagram cookies + carousel settings added below cfg instantiation
-
-
 
 
