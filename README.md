@@ -32,7 +32,7 @@ bot.py         backward-compatible entry point
 ```bash
 python -m venv venv
 ./venv/bin/pip install -r requirements.txt
-cp .env.example .env
+cp docs/.env.example .env
 ```
 
 Fill in the required values in `.env`, then start the bot:
@@ -47,10 +47,28 @@ The package entry point is also available:
 ./venv/bin/python -m content_bot
 ```
 
-For the current `nohup` deployment:
+## systemd deployment
 
 ```bash
-nohup ./venv/bin/python bot.py >> nohup.out 2>&1 &
+mkdir -p ~/.config/systemd/user
+cp deploy/content-bot.service ~/.config/systemd/user/content-bot.service
+systemctl --user daemon-reload
+systemctl --user enable --now content-bot.service
+```
+
+To start the user service automatically at boot without an interactive login,
+enable lingering once:
+
+```bash
+sudo loginctl enable-linger bot
+```
+
+Service management:
+
+```bash
+systemctl --user status content-bot.service
+systemctl --user restart content-bot.service
+journalctl --user -u content-bot.service -f
 ```
 
 ## Commands

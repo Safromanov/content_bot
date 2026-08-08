@@ -1,0 +1,21 @@
+[Unit]
+Description=Content Bot Telegram service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/bot/tg-bot
+EnvironmentFile=/home/bot/tg-bot/.env
+ExecStart=/home/bot/tg-bot/venv/bin/python -m content_bot
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+UMask=0077
+
+[Install]
+WantedBy=default.target

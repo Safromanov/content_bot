@@ -72,3 +72,5 @@ Fields: `Theme`, `Date`, `Text`, `URL`, `Platform`, `Category`, `Author`, `Attac
 - **Markdown escaping**: `_escape_markdown_headings()` prevents NocoDB from rendering `#hashtags` as headings
 - **Summary threshold**: `generate_summary` skipped for transcripts <300 chars
 - **Retry**: 3 attempts with exponential backoff (1s, 2s, 4s), then DLQ
+- **Deployment**: user systemd unit in `deploy/content-bot.service`; lingering enables boot startup
+- **Shutdown**: the queue worker is cancelled and awaited during application shutdown

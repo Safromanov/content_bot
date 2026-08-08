@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+from contextlib import suppress
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters
 from content_bot.config import cfg, validate_config
@@ -23,8 +24,17 @@ logger = logging.getLogger(__name__)
 
 
 async def post_init(app):
-    asyncio.create_task(queue_worker(app))
+    app.bot_data['queue_worker_task'] = asyncio.create_task(queue_worker(app))
     logger.info('Бот запущен')
+
+
+async def post_shutdown(app):
+    worker = app.bot_data.get('queue_worker_task')
+    if worker:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
+    logger.info('Бот остановлен')
 
 
 def main():
@@ -34,6 +44,7 @@ def main():
         ApplicationBuilder()
         .token(cfg.TELEGRAM_TOKEN)
         .post_init(post_init)
+        .post_shutdown(post_shutdown)
         .build()
     )
 
