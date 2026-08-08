@@ -1,6 +1,5 @@
 # text_utils.py
 
-import base64
 import logging
 import mimetypes
 from content_bot.config import cfg
@@ -10,25 +9,6 @@ logger = logging.getLogger(__name__)
 
 TITLE_TEXT_LIMIT = 800
 CLASSIFY_TEXT_LIMIT = 2000
-
-
-def analyze_photo(file_path: str) -> str:
-    """Vision: описание содержимого фото на русском."""
-    try:
-        with open(file_path, 'rb') as f:
-            b64 = base64.b64encode(f.read()).decode('utf-8')
-        response = get_groq().chat.completions.create(
-            model='meta-llama/llama-4-scout-17b-16e-instruct',
-            max_tokens=200,
-            messages=[{'role': 'user', 'content': [
-                {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,' + b64}},
-                {'type': 'text', 'text': 'Describe what is shown in the photo in Russian. One very short sentence (max 15 words). Only core content.'}
-            ]}]
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error('analyze_photo: ' + str(e))
-        return ''
 
 
 def analyze_images(file_paths: list[str]) -> str:

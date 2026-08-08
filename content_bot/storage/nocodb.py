@@ -10,6 +10,7 @@
 # NocoDB Long Text лимит: ~1 МБ на запись (~500 000 символов) — практически неограничен
 
 import os
+import hashlib
 import mimetypes
 import requests
 import logging
@@ -44,36 +45,31 @@ def get_headers():
 # ── Загрузка файлов ───────────────────────────────────────────────────────────
 
 def upload_file(local_path: str) -> list:
-    try:
-        size = os.path.getsize(local_path)
-        if size > 5 * 1024 * 1024:
-            logger.warning(os.path.basename(local_path) + ' > 5 МБ, пропускаем')
-            return []
-
-        mime, _  = mimetypes.guess_type(local_path)
-        mime     = mime or 'application/octet-stream'
-        filename = os.path.basename(local_path)
-
-        with open(local_path, 'rb') as f:
-            resp = requests.post(
-                NOCODB_API + '/storage/upload',
-                headers={'xc-token': cfg.NOCODB_TOKEN},
-                files={'file': (filename, f, mime)},
-                timeout=60
-            )
-
-        if not resp.ok:
-            logger.error('Upload ' + str(resp.status_code) + ': ' + resp.text[:200])
-            return []
-
-        data   = resp.json()
-        result = data if isinstance(data, list) else [data]
-        logger.info('Загружен ' + filename)
-        return result
-
-    except Exception as e:
-        logger.error('upload_file: ' + str(e))
+    size = os.path.getsize(local_path)
+    if size > 5 * 1024 * 1024:
+        logger.warning(os.path.basename(local_path) + ' > 5 МБ, пропускаем')
         return []
+
+    mime, _  = mimetypes.guess_type(local_path)
+    mime     = mime or 'application/octet-stream'
+    filename = os.path.basename(local_path)
+
+    with open(local_path, 'rb') as f:
+        resp = requests.post(
+            NOCODB_API + '/storage/upload',
+            headers={'xc-token': cfg.NOCODB_TOKEN},
+            files={'file': (filename, f, mime)},
+            timeout=60
+        )
+
+    if not resp.ok:
+        logger.error('Upload ' + str(resp.status_code) + ': ' + resp.text[:200])
+        resp.raise_for_status()
+
+    data   = resp.json()
+    result = data if isinstance(data, list) else [data]
+    logger.info('Загружен ' + filename)
+    return result
 
 
 def upload_files(paths: list) -> list:
@@ -242,6 +238,31 @@ def build_text_field(content: dict, meta: dict) -> str:
 
 # ── Построение записи ─────────────────────────────────────────────────────────
 
+def build_source_id(task: dict) -> str:
+    """Стабильный ID одного Telegram-сообщения для идемпотентных retry."""
+    chat_id = task.get('chat_id', '')
+    message_id = task.get('message_id', '')
+    source = 'telegram:' + str(chat_id) + ':' + str(message_id)
+    if not chat_id or not message_id:
+        source = 'task:' + str(task.get('task_id', ''))
+    return hashlib.sha256(source.encode('utf-8')).hexdigest()[:32]
+
+
+def find_record_by_source_id(source_id: str) -> str:
+    """Возвращает существующий NocoDB row ID или пустую строку."""
+    resp = requests.get(
+        NOCODB_API + '/tables/' + cfg.NOCODB_TABLE_ID + '/records',
+        params={'where': '(SourceId,eq,' + source_id + ')', 'limit': 1},
+        headers=get_headers(),
+        timeout=30,
+    )
+    if not resp.ok:
+        logger.error('NocoDB dedup lookup ' + str(resp.status_code) + ': ' + resp.text[:300])
+        resp.raise_for_status()
+
+    rows = resp.json().get('list', [])
+    return str(rows[0].get('Id', '')) if rows else ''
+
 def build_record(task: dict, category: str, meta: dict,
                  theme_title: str, author: str, attachments: list) -> dict:
     content  = task['content']
@@ -253,6 +274,7 @@ def build_record(task: dict, category: str, meta: dict,
     url_value  = (content.get('url') or '') if ctype in URL_CONTENT_TYPES else ''
 
     record = {
+        'SourceId': build_source_id(task),
         'Theme':    theme_title,
         'Date':     now,
         'Text':     text_value,
@@ -273,8 +295,7 @@ def build_record(task: dict, category: str, meta: dict,
 def post_record(record: dict) -> str:
     table_id = cfg.NOCODB_TABLE_ID
     if not table_id:
-        logger.error('NOCODB_TABLE_ID не задан в .env')
-        return ''
+        raise RuntimeError('NOCODB_TABLE_ID не задан в .env')
 
     # Диагностика — видим что именно отправляем
     text_len = len(record.get('Text', ''))
@@ -296,6 +317,8 @@ def post_record(record: dict) -> str:
         resp.raise_for_status()
 
     row_id = str(resp.json().get('Id', ''))
+    if not row_id:
+        raise RuntimeError('NocoDB создал запись, но не вернул Id')
     logger.info('Id=' + row_id + ' Category=' + record.get('Category', ''))
     return row_id
 
@@ -321,16 +344,15 @@ def update_record_category(row_id: str, category: str) -> bool:
 def write_record(task: dict, category: str, meta: dict,
                  theme_title: str, author: str,
                  local_file_paths: list) -> str:
-    try:
-        attachments = upload_files(local_file_paths)
-        record      = build_record(task, category, meta, theme_title, author, attachments)
-        return post_record(record)
-    except requests.exceptions.HTTPError:
-        return ''
-    except Exception as e:
-        logger.error('write_record: ' + str(e))
-        return ''
+    source_id = build_source_id(task)
+    existing_row_id = find_record_by_source_id(source_id)
+    if existing_row_id:
+        logger.info('SourceId=' + source_id + ' уже сохранён, Id=' + existing_row_id)
+        return existing_row_id
 
+    attachments = upload_files(local_file_paths)
+    record = build_record(task, category, meta, theme_title, author, attachments)
+    return post_record(record)
 
 
 
