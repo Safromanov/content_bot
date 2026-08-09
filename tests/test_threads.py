@@ -10,9 +10,15 @@ from content_bot.media import transcription
 
 class ThreadsTests(unittest.TestCase):
     def test_detects_threads_post_urls(self):
-        for domain in ('threads.net', 'threads.com'):
+        urls = (
+            'https://threads.net/@author/post/ABC123',
+            'https://threads.com/@author/post/ABC123',
+            'https://threads.com/t/ABC123',
+            'https://threads.com/share/_yCJG6t9U/',
+        )
+        for url in urls:
             message = SimpleNamespace(
-                text='https://' + domain + '/@author/post/ABC123',
+                text=url,
                 caption=None,
                 entities=None,
                 caption_entities=None,

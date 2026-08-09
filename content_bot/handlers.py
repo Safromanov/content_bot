@@ -103,6 +103,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    if (content_type == ContentType.THREADS and
+            '/share/' in (content.get('url') or '').lower()):
+        await message.reply_text(
+            'Это короткая share-ссылка Threads. Публичная страница по ней '
+            'показывает только экран входа, без самого поста.\n\n'
+            'Открой ссылку в браузере и пришли адрес публикации вида:\n'
+            'threads.com/@имя/post/код'
+        )
+        return
+
     task = {
         'task_id':    task_id,
         'user_id':    update.effective_user.id,

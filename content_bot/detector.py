@@ -24,7 +24,7 @@ class ContentType(Enum):
 PATTERNS = {
     ContentType.YOUTUBE:   r'(youtube\.com/watch|youtu\.be/|youtube\.com/shorts)',
     ContentType.INSTAGRAM: r'instagram\.com/(p|reel|tv)/',
-    ContentType.THREADS:   r'threads\.(net|com)/@[^\s/]+/post/',
+    ContentType.THREADS:   r'threads\.(net|com)/(?:@[^\s/]+/post/|t/|share/)',
     ContentType.TIKTOK:    r'(tiktok\.com|vm\.tiktok\.com)',
     ContentType.TELEGRAM:  r't\.me/',
     ContentType.VK_WALL:   r'vk\.(com|ru)/wall',

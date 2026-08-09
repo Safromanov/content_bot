@@ -489,11 +489,6 @@ def process_threads_url(url: str, tmp_dir: str) -> dict:
                       'AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
         'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
     })
-    if cfg.INSTAGRAM_COOKIES_FILE and os.path.exists(cfg.INSTAGRAM_COOKIES_FILE):
-        cookie_jar = MozillaCookieJar(cfg.INSTAGRAM_COOKIES_FILE)
-        cookie_jar.load(ignore_discard=True, ignore_expires=True)
-        session.cookies.update(cookie_jar)
-
     response = session.get(url, timeout=30)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -697,4 +692,3 @@ def process_vk_wall_post(url: str, tmp_dir: str) -> dict:
     result['post_type'] = 'photo' if photo_count > 0 else ('text' if text else 'unknown')
     logger.info('VK wall-пост: скачано ' + str(photo_count) + ' фото, автор=' + result['author'][:30])
     return result
-
