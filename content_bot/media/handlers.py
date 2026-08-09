@@ -11,7 +11,7 @@ from content_bot.detector import ContentType
 from content_bot.media.transcription import (
     transcribe_file, format_transcript,
     get_youtube_transcript,
-    process_instagram_url, process_social_url_ydl,
+    process_instagram_url, process_threads_url, process_social_url_ydl,
     process_vk_wall_post,
     download_audio_ydl,
 )
@@ -137,7 +137,9 @@ class SocialHandler(BaseMediaHandler):
 
     async def enrich(self, content: dict, bot, task_id: str) -> dict:
         import asyncio
-        from content_bot.media.transcription import process_instagram_url, process_social_url_ydl
+        from content_bot.media.transcription import (
+            process_instagram_url, process_threads_url, process_social_url_ydl,
+        )
         from content_bot.ai.text_utils import generate_summary, generate_video_description, analyze_images
 
         self._init_content(content)
@@ -155,9 +157,12 @@ class SocialHandler(BaseMediaHandler):
 
         from content_bot.detector import ContentType
         is_instagram = (ctype == ContentType.INSTAGRAM)
+        is_threads = (ctype == ContentType.THREADS)
 
         if is_instagram:
             result = await loop.run_in_executor(None, process_instagram_url, url, cfg.TEMP_DIR)
+        elif is_threads:
+            result = await loop.run_in_executor(None, process_threads_url, url, cfg.TEMP_DIR)
         else:
             result = await loop.run_in_executor(None, process_social_url_ydl, url, cfg.TEMP_DIR)
 
@@ -404,6 +409,7 @@ class TextHandler(BaseMediaHandler):
 _HANDLER_MAP: dict[ContentType, BaseMediaHandler] = {
     ContentType.YOUTUBE:   YouTubeHandler(),
     ContentType.INSTAGRAM: SocialHandler(),
+    ContentType.THREADS:   SocialHandler(),
     ContentType.TIKTOK:    SocialHandler(),
     ContentType.VK:        SocialHandler(),
     ContentType.VK_WALL:   VkWallHandler(),

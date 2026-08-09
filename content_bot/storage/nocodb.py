@@ -26,6 +26,7 @@ NOCODB_API = cfg.NOCODB_BASE_URL + '/api/v2'
 URL_CONTENT_TYPES = {
     ContentType.YOUTUBE,
     ContentType.INSTAGRAM,
+    ContentType.THREADS,
     ContentType.TIKTOK,
     ContentType.VK,
     ContentType.VK_WALL,
@@ -353,7 +354,6 @@ def write_record(task: dict, category: str, meta: dict,
     attachments = upload_files(local_file_paths)
     record = build_record(task, category, meta, theme_title, author, attachments)
     return post_record(record)
-
 
 
 

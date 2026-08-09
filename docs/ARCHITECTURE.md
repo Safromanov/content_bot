@@ -55,6 +55,7 @@ User message → content_bot/bot.py → handlers.py (detect + queue) → process
 |-------------|---------|----------------|
 | YOUTUBE | YouTubeHandler | oEmbed + subtitles API (parallel) |
 | INSTAGRAM | SocialHandler | 3-source metadata (instaloader/oEmbed/scrape) + media download + vision |
+| THREADS | SocialHandler | embedded JSON carousel extraction + image download + vision |
 | TIKTOK, VK | SocialHandler | yt-dlp metadata + audio download + Whisper |
 | VIDEO, AUDIO | TelegramVideoHandler | Download from Telegram → Whisper |
 | PHOTO | PhotoHandler | Download photos → vision analysis if no caption |

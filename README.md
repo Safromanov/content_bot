@@ -5,7 +5,7 @@ with AI, and stores structured records and attachments in NocoDB.
 
 ## Supported content
 
-- YouTube, Instagram, TikTok, VK, LinkedIn, Telegram, and regular web links
+- YouTube, Instagram, Threads, TikTok, VK, LinkedIn, Telegram, and regular web links
 - Telegram text, photos, albums, video, voice, and audio
 - Instagram carousels with all images preserved; video items are skipped
 - Speech transcription with Groq Whisper

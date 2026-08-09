@@ -7,6 +7,7 @@ from enum import Enum
 class ContentType(Enum):
     YOUTUBE   = 'youtube'
     INSTAGRAM = 'instagram'
+    THREADS   = 'threads'
     TIKTOK    = 'tiktok'
     TELEGRAM  = 'telegram'
     VK        = 'vk'
@@ -23,6 +24,7 @@ class ContentType(Enum):
 PATTERNS = {
     ContentType.YOUTUBE:   r'(youtube\.com/watch|youtu\.be/|youtube\.com/shorts)',
     ContentType.INSTAGRAM: r'instagram\.com/(p|reel|tv)/',
+    ContentType.THREADS:   r'threads\.(net|com)/@[^\s/]+/post/',
     ContentType.TIKTOK:    r'(tiktok\.com|vm\.tiktok\.com)',
     ContentType.TELEGRAM:  r't\.me/',
     ContentType.VK_WALL:   r'vk\.(com|ru)/wall',
@@ -35,6 +37,7 @@ PATTERNS = {
 PLATFORM_LABELS = {
     ContentType.YOUTUBE:   'YouTube',
     ContentType.INSTAGRAM: 'Instagram',
+    ContentType.THREADS:   'Threads',
     ContentType.TIKTOK:    'TikTok',
     ContentType.TELEGRAM:  'Telegram',
     ContentType.VK:        'VK',

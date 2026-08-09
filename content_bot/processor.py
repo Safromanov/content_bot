@@ -58,7 +58,8 @@ def _build_classify_text(content: dict) -> str:
     if transcript:
         parts.append(transcript[:CLASSIFY_TEXT_LIMIT])
     elif vision and ctype in (ContentType.PHOTO, ContentType.VIDEO,
-                              ContentType.INSTAGRAM, ContentType.TIKTOK, ContentType.VK):
+                              ContentType.INSTAGRAM, ContentType.THREADS,
+                              ContentType.TIKTOK, ContentType.VK):
         parts.append(vision)
     elif meta.get('description') and meta['description'] not in meaningful:
         parts.append(meta['description'])
@@ -112,7 +113,8 @@ def _build_theme_title(content: dict, meta: dict, classify_text: str) -> str:
     if meta.get('description'):
         return generate_theme_title(meta['description'])
     
-    if ctype in (ContentType.INSTAGRAM, ContentType.TIKTOK, ContentType.VK) and not has_caption:
+    if ctype in (ContentType.INSTAGRAM, ContentType.THREADS,
+                 ContentType.TIKTOK, ContentType.VK) and not has_caption:
         return meta.get('title', '') or ''
     return generate_theme_title(classify_text) if classify_text else ''
 

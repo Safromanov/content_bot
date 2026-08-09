@@ -22,6 +22,7 @@ _album_buffer: dict = {}
 TYPE_LABELS = {
     ContentType.YOUTUBE:   'YouTube видео',
     ContentType.INSTAGRAM: 'Instagram',
+    ContentType.THREADS:   'Threads',
     ContentType.TIKTOK:    'TikTok',
     ContentType.TELEGRAM:  'Telegram контент',
     ContentType.VK:        'VK',
@@ -39,6 +40,7 @@ TYPE_LABELS = {
 LONG_PROCESSING_TYPES = {
     ContentType.YOUTUBE,
     ContentType.INSTAGRAM,
+    ContentType.THREADS,
     ContentType.TIKTOK,
     ContentType.VK,
     ContentType.VK_WALL,
@@ -94,7 +96,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if content_type == ContentType.UNKNOWN:
         await message.reply_text(
             'Не понял что это. Пришли:\n'
-            '• Ссылку на YouTube, Instagram, TikTok, VK, LinkedIn\n'
+            '• Ссылку на YouTube, Instagram, Threads, TikTok, VK, LinkedIn\n'
             '• Фото или альбом фото\n'
             '• Видео или аудио файл\n'
             '• Текст для сохранения'
@@ -134,6 +136,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ContentType.VIDEO:     '🎙 Транскрибирую аудио...',
             ContentType.AUDIO:     '🎙 Транскрибирую аудио...',
             ContentType.INSTAGRAM: '📥 Скачиваю и анализирую...',
+            ContentType.THREADS:   '📥 Скачиваю изображения...',
             ContentType.TIKTOK:    '📥 Скачиваю и анализирую...',
             ContentType.VK:        '📥 Скачиваю и анализирую...',
             ContentType.VK_WALL:   '📥 Получаю пост ВКонтакте...',
@@ -153,7 +156,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Привет! Я сохраняю контент в NocoDB.\n\n'
         'Пришли мне:\n'
-        '• Ссылку на YouTube / Instagram / TikTok / VK / LinkedIn\n'
+        '• Ссылку на YouTube / Instagram / Threads / TikTok / VK / LinkedIn\n'
         '• Фото или альбом\n'
         '• Видео или аудио файл\n'
         '• Текст\n\n'

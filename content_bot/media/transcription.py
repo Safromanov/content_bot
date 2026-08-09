@@ -5,8 +5,10 @@ import re
 import html
 import logging
 import hashlib
+import json
 from http.cookiejar import MozillaCookieJar
 import requests as req
+from bs4 import BeautifulSoup
 from content_bot.config import cfg
 from content_bot.ai.groq_client import get_groq
 
@@ -165,7 +167,8 @@ def _clean_instagram_url(url: str) -> str:
     return url.split("?")[0].rstrip("/")
 
 
-def _download_image(img_url: str, fpath: str, instagram_context=None) -> bool:
+def _download_image(img_url: str, fpath: str, instagram_context=None,
+                    request_session=None) -> bool:
     """Скачивает изображение с CDN Instagram."""
     try:
         headers = {
@@ -177,7 +180,8 @@ def _download_image(img_url: str, fpath: str, instagram_context=None) -> bool:
         if instagram_context is not None:
             resp = instagram_context.get_raw(img_url)
         else:
-            resp = req.get(img_url, headers=headers, timeout=30)
+            client = request_session or req
+            resp = client.get(img_url, headers=headers, timeout=30)
         resp.raise_for_status()
         with open(fpath, "wb") as f:
             f.write(resp.content)
@@ -439,6 +443,101 @@ def process_instagram_url(url: str, tmp_dir: str) -> dict:
     return result
 
 
+# ── Threads ──────────────────────────────────────────────────────────────────
+
+def _walk_threads_payload(value, image_urls: list, metadata: dict) -> None:
+    """Извлекает изображения и подпись из встроенного JSON Threads."""
+    if isinstance(value, list):
+        for item in value:
+            _walk_threads_payload(item, image_urls, metadata)
+        return
+    if not isinstance(value, dict):
+        return
+
+    username = value.get('username')
+    if isinstance(username, str) and username and not metadata.get('author'):
+        metadata['author'] = username
+
+    caption = value.get('caption')
+    if isinstance(caption, dict):
+        caption_text = caption.get('text')
+        if isinstance(caption_text, str) and caption_text and not metadata.get('description'):
+            metadata['description'] = caption_text
+
+    is_video = value.get('media_type') in (2, 'VIDEO')
+    versions = value.get('image_versions2')
+    if not is_video and isinstance(versions, dict):
+        candidates = versions.get('candidates') or []
+        if candidates and isinstance(candidates[0], dict):
+            image_url = candidates[0].get('url')
+            if isinstance(image_url, str) and image_url and image_url not in image_urls:
+                image_urls.append(image_url)
+
+    for child in value.values():
+        _walk_threads_payload(child, image_urls, metadata)
+
+
+def process_threads_url(url: str, tmp_dir: str) -> dict:
+    """Скачивает все изображения публичного Threads-поста, пропуская видео."""
+    result = {
+        'post_type': 'unknown', 'transcript': '', 'author': '',
+        'title': '', 'description': '', 'media_files': [],
+    }
+    session = req.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                      'AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+    })
+    if cfg.INSTAGRAM_COOKIES_FILE and os.path.exists(cfg.INSTAGRAM_COOKIES_FILE):
+        cookie_jar = MozillaCookieJar(cfg.INSTAGRAM_COOKIES_FILE)
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        session.cookies.update(cookie_jar)
+
+    response = session.get(url, timeout=30)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    description_tag = soup.find('meta', property='og:description')
+    image_tag = soup.find('meta', property='og:image')
+    metadata = {
+        'author': '',
+        'description': html.unescape(description_tag.get('content', '')).strip()
+        if description_tag else '',
+    }
+    image_urls = []
+
+    for script in soup.find_all('script', type='application/json'):
+        raw = script.string or script.get_text()
+        if not raw or 'image_versions2' not in raw:
+            continue
+        try:
+            _walk_threads_payload(json.loads(raw), image_urls, metadata)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    if not image_urls and image_tag and image_tag.get('content'):
+        image_urls.append(html.unescape(image_tag['content']).strip())
+
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
+    for index, image_url in enumerate(image_urls[:cfg.CAROUSEL_MAX_IMAGES]):
+        path = os.path.join(tmp_dir, 'threads_' + url_hash + '_' + str(index).zfill(3) + '.jpg')
+        if _download_image(image_url, path, request_session=session):
+            result['media_files'].append(path)
+
+    result['author'] = metadata['author']
+    result['description'] = metadata['description']
+    result['title'] = ' '.join(metadata['description'].split()[:20])
+    if result['media_files']:
+        result['post_type'] = 'carousel' if len(result['media_files']) > 1 else 'photo'
+    logger.info(
+        'Threads: images=' + str(len(result['media_files'])) +
+        ' desc_len=' + str(len(result['description'])) +
+        ' author=' + result['author']
+    )
+    return result
+
+
 # ── TikTok / VK ──────────────────────────────────────────────────────────────
 
 def process_social_url_ydl(url: str, tmp_dir: str) -> dict:
@@ -598,5 +697,4 @@ def process_vk_wall_post(url: str, tmp_dir: str) -> dict:
     result['post_type'] = 'photo' if photo_count > 0 else ('text' if text else 'unknown')
     logger.info('VK wall-пост: скачано ' + str(photo_count) + ' фото, автор=' + result['author'][:30])
     return result
-
 
