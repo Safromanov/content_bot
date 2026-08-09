@@ -1,56 +1,17 @@
-# retry_utils.py
+# retry.py
 # Retry с exponential backoff + Dead Letter Queue для упавших задач.
 #
 # DLQ: задачи упавшие все 3 попытки сохраняются в dead_letter.json
 # для ручного разбора. При следующем старте бота DLQ не переигрывается
 # автоматически — это намеренно (ручной контроль).
 
-import asyncio
 import json
 import logging
 import os
-import time
 from datetime import datetime
-from functools import wraps
 from content_bot.config import cfg
 
 logger = logging.getLogger(__name__)
-
-
-def retry_async(attempts: int = None, base_delay: float = None):
-    """
-    Декоратор для async-функций. Повторяет вызов при исключении.
-    Задержки: base_delay * 2^attempt (1s, 2s, 4s при base_delay=1).
-    """
-    _attempts    = attempts    or cfg.RETRY_ATTEMPTS
-    _base_delay  = base_delay  or cfg.RETRY_BASE_DELAY
-
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            last_exc = None
-            for attempt in range(_attempts):
-                try:
-                    return await func(*args, **kwargs)
-                except Exception as e:
-                    last_exc = e
-                    if attempt < _attempts - 1:
-                        delay = _base_delay * (2 ** attempt)
-                        logger.warning(
-                            func.__name__ + ' attempt ' + str(attempt + 1) +
-                            '/' + str(_attempts) + ' failed: ' + str(e)[:100] +
-                            ' — retry in ' + str(delay) + 's'
-                        )
-                        await asyncio.sleep(delay)
-                    else:
-                        logger.error(
-                            func.__name__ + ' all ' + str(_attempts) +
-                            ' attempts failed: ' + str(e)[:200]
-                        )
-            raise last_exc
-        return wrapper
-    return decorator
-
 
 def save_to_dlq(task: dict, error: str) -> None:
     """Сохраняет задачу в dead_letter.json для ручного разбора."""

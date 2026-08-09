@@ -72,6 +72,37 @@ class ThreadsTests(unittest.TestCase):
             self.assertEqual(2, len(result['media_files']))
             self.assertTrue(all(os.path.exists(path) for path in result['media_files']))
 
+    def test_share_url_uses_public_metadata_and_desktop_headers(self):
+        page = (
+            '<meta property="og:title" content="Author Name (@author) in Threads">'
+            '<meta property="og:description" content="Public post text">'
+            '<meta property="og:image" content="https://cdn.example/post.jpg">'
+        )
+        response = Mock(text=page)
+        response.raise_for_status.return_value = None
+        session = Mock()
+        session.headers = {}
+        session.get.return_value = response
+
+        def fake_download(url, path, instagram_context=None, request_session=None):
+            with open(path, 'wb') as output:
+                output.write(b'image')
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp_dir, \
+                patch.object(transcription.req, 'Session', return_value=session), \
+                patch.object(transcription, '_download_image', side_effect=fake_download):
+            result = transcription.process_threads_url(
+                'https://www.threads.com/share/ABC123/', tmp_dir
+            )
+
+            self.assertIn('Windows NT', session.headers['User-Agent'])
+            self.assertEqual('Author Name (@author) in Threads', result['title'])
+            self.assertEqual('author', result['author'])
+            self.assertEqual('Public post text', result['description'])
+            self.assertEqual('photo', result['post_type'])
+            self.assertEqual(1, len(result['media_files']))
+
 
 if __name__ == '__main__':
     unittest.main()

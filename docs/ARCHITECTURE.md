@@ -7,14 +7,14 @@ Telegram-бот для сбора контента из соцсетей → о�
 ```
 User message → content_bot/bot.py → handlers.py (detect + queue) → processor.py
                                                             ↓
-                                                     media_handlers.py (enrich by platform)
+                                                media/handlers.py (enrich by platform)
                                                             ↓
                                               ┌─────────────┼──────────────┐
                                          transcription.py  text_utils.py  classifier.py
                                          (Whisper, yt-dlp)  (LLM: vision,  (LLM: category
                                                             summary, title) classification)
                                                             ↓
-                                                     nocodb_writer.py → NocoDB API
+                                                   storage/nocodb.py → NocoDB API
 ```
 
 ## Modules
@@ -49,13 +49,13 @@ User message → content_bot/bot.py → handlers.py (detect + queue) → process
 | Video description | llama-3.1-8b | `ai/text_utils.py:generate_video_description` | 200-300 |
 | Translation | llama-3.1-8b | `ai/text_utils.py:translate_to_russian` | 500-1000 |
 
-## ContentType Routing (media_handlers.py)
+## ContentType Routing (`content_bot/media/handlers.py`)
 
 | ContentType | Handler | enrich() logic |
 |-------------|---------|----------------|
 | YOUTUBE | YouTubeHandler | oEmbed + subtitles API (parallel) |
 | INSTAGRAM | SocialHandler | 3-source metadata (instaloader/oEmbed/scrape) + media download + vision |
-| THREADS | SocialHandler | embedded JSON carousel extraction + image download + vision |
+| THREADS | SocialHandler | public Open Graph metadata + embedded JSON images when available + vision |
 | TIKTOK, VK | SocialHandler | yt-dlp metadata + audio download + Whisper |
 | VIDEO, AUDIO | TelegramVideoHandler | Download from Telegram → Whisper |
 | PHOTO | PhotoHandler | Download photos → vision analysis if no caption |
@@ -72,7 +72,7 @@ Fields: `SourceId`, `Theme`, `Date`, `Text`, `URL`, `Platform`, `Category`, `Aut
 - **Translation guard**: `_is_mostly_russian()` skips LLM translation call for Russian text (>60% Cyrillic)
 - **Markdown escaping**: `_escape_markdown_headings()` prevents NocoDB from rendering `#hashtags` as headings
 - **Summary threshold**: `generate_summary` skipped for transcripts <300 chars
-- **Retry**: 3 attempts with exponential backoff (1s, 2s, 4s), then DLQ
+- **Retry**: 3 attempts with exponential backoff (1s and 2s before retries), then DLQ
 - **Idempotency**: `SourceId` is derived from Telegram chat/message IDs; retries reuse an existing row
 - **NocoDB failures**: record and attachment errors propagate to retry/DLQ instead of being swallowed
 - **Deployment**: user systemd unit in `deploy/content-bot.service`; lingering enables boot startup

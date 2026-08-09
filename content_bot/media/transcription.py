@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 WHISPER_SIZE_LIMIT = 25 * 1024 * 1024
 IMAGE_EXTS = {"jpg", "jpeg", "png", "gif", "webp", "bmp"}
+THREADS_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                  'AppleWebKit/537.36',
+    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8',
+}
 
 
 # ── Whisper ───────────────────────────────────────────────────────────────────
@@ -478,25 +483,25 @@ def _walk_threads_payload(value, image_urls: list, metadata: dict) -> None:
 
 
 def process_threads_url(url: str, tmp_dir: str) -> dict:
-    """Скачивает все изображения публичного Threads-поста, пропуская видео."""
+    """Скачивает доступные изображения публичного Threads-поста, пропуская видео."""
     result = {
         'post_type': 'unknown', 'transcript': '', 'author': '',
         'title': '', 'description': '', 'media_files': [],
     }
     session = req.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
-                      'AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
-        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
-    })
+    session.headers.update(THREADS_HEADERS)
     response = session.get(url, timeout=30)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, 'html.parser')
 
+    title_tag = soup.find('meta', property='og:title')
     description_tag = soup.find('meta', property='og:description')
     image_tag = soup.find('meta', property='og:image')
+    page_title = html.unescape(title_tag.get('content', '')).strip() if title_tag else ''
+    author_match = re.search(r'\(@([^\s)]+)\)', page_title)
     metadata = {
-        'author': '',
+        'author': author_match.group(1) if author_match else '',
+        'title': page_title,
         'description': html.unescape(description_tag.get('content', '')).strip()
         if description_tag else '',
     }
@@ -522,7 +527,7 @@ def process_threads_url(url: str, tmp_dir: str) -> dict:
 
     result['author'] = metadata['author']
     result['description'] = metadata['description']
-    result['title'] = ' '.join(metadata['description'].split()[:20])
+    result['title'] = metadata['title'] or ' '.join(metadata['description'].split()[:20])
     if result['media_files']:
         result['post_type'] = 'carousel' if len(result['media_files']) > 1 else 'photo'
     logger.info(

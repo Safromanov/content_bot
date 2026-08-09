@@ -1,4 +1,4 @@
-"""Backward-compatible entry point for nohup and local execution."""
+"""Backward-compatible entry point for local execution."""
 
 from content_bot.bot import main
 

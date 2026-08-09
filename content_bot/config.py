@@ -41,10 +41,9 @@ class Config:
 
     # ── Retry ─────────────────────────────────────────────
     RETRY_ATTEMPTS = 3          # попыток на задачу
-    RETRY_BASE_DELAY = 1.0      # секунд (экспоненциальный backoff: 1, 3, 9)
+    RETRY_BASE_DELAY = 1.0      # паузы перед повторами: 1 и 2 секунды
     DLQ_FILE = 'dead_letter.json'
 
-    # ── Прочее ────────────────────────────────────────────
     # ── Instagram / yt-dlp ────────────────────────────────
     # Как получить cookies:
     #   На сервере: yt-dlp --cookies-from-browser chrome --skip-download <url>
@@ -82,6 +81,4 @@ def validate_config() -> None:
         for m in missing:
             print('   ' + m)
         sys.exit(1)
-# Patch: Instagram cookies + carousel settings added below cfg instantiation
-
 

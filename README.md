@@ -8,6 +8,7 @@ with AI, and stores structured records and attachments in NocoDB.
 - YouTube, Instagram, Threads, TikTok, VK, LinkedIn, Telegram, and regular web links
 - Telegram text, photos, albums, video, voice, and audio
 - Instagram carousels with all images preserved; video items are skipped
+- Threads public post text and available images, including short `/share/` links
 - Speech transcription with Groq Whisper
 - Multi-image analysis with Gemini
 - Category classification, titles, summaries, and translation
